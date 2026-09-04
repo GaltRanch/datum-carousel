@@ -136,7 +136,7 @@ typedef struct {
 	char mining_template_supplier_address[256];  // address del supplier (output del 1%) — modo single
 	int mining_template_supplier_bps;  // bps del supplier (default 100 = 1%)
 	int mining_template_pool_bps;      // bps del pool/fee (default 100 = 1%)
-	bool mining_blake2b_template_carousel;  // Carousel: rota un supplier fresco al azar por ciclo desde template_dir; paga a ESE supplier. Requiere blake2b_template=true.
+	bool mining_blake2b_template_carousel;  // Carousel: rotación DETERMINISTA (round-robin seeded por prevhash) sobre los suppliers frescos de template_dir; paga a ESE supplier. Requiere blake2b_template=true.
 	char mining_template_dir[256];     // dir de caches de supplier (template_live/) para el Carousel
 	int coinbase_unique_id;
 	

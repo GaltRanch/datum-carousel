@@ -589,8 +589,73 @@ static bool datum_template_swap_from(json_t *res_val, json_t *sup, const char *o
 	return true;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Carousel — DETERMINISTIC rotation (replaces the old rand() shuffle). Selection neutrality is
+// enforced by construction and recomputable by anyone from public data:
+//   set     = supplier addresses whose cached template is fresh (previousblockhash == our tip),
+//             sorted bytewise ascending (filename minus .json = payout address)
+//   seed    = BLAKE2b-256(prevhash as lowercase hex ASCII)
+//   start   = uint64_be(seed[0..8]) % n
+//   cycle   = work cycles since this prevhash was first seen by this gateway (0-based, ~every
+//             work_update_seconds)
+//   pick    = set[(start + cycle + skipped) % n]   (skipped = scheduled templates that failed to
+//             load/apply this cycle, tried in schedule order)
+// Every valid supplier is served exactly once per n cycles (round-robin), in an order fixed by the
+// previous block hash. Each cycle is logged ("carousel: rotation ...", the set whenever it changes)
+// and exposed live on the API (/carousel). The served job carries pick's payout output + name in the
+// coinbase, so a supplier can measure its own serve-rate straight from the stratum.
+// ---------------------------------------------------------------------------------------------
+T_CAROUSEL_ROTATION g_carousel_rot = { .lock = PTHREAD_MUTEX_INITIALIZER };
+
+static int carousel_cmp(const void *a, const void *b) { return strcmp((const char *)a, (const char *)b); }
+
+// Cheap freshness check on the cache header (the ingest writes previousblockhash within the first bytes).
+// 1 = fresh, 0 = stale, -1 = undetermined (caller falls back to a full parse).
+static int carousel_header_fresh(const char *path, const char *our_ph) {
+	char buf[4096];
+	const char *k;
+	size_t r, l;
+	FILE *f = fopen(path, "rb");
+	if (!f) return 0;
+	r = fread(buf, 1, sizeof(buf) - 1, f);
+	fclose(f);
+	buf[r] = 0;
+	k = strstr(buf, "\"previousblockhash\"");
+	if (!k) return -1;
+	k = strchr(k + 19, ':');
+	if (!k) return -1;
+	k = strchr(k, '"');
+	if (!k) return -1;
+	k++;
+	l = strlen(our_ph);
+	if (strlen(k) < l + 1) return -1;
+	return (!strncmp(k, our_ph, l) && k[l] == '"') ? 1 : 0;
+}
+
+static void carousel_rot_publish(const char *our_ph, uint64_t height, uint32_t cycle, int n, int start, int idx, int skipped, const char *pick, const char *set_hash, char names[][128]) {
+	int i;
+	pthread_mutex_lock(&g_carousel_rot.lock);
+	strncpy(g_carousel_rot.prevhash, our_ph, sizeof(g_carousel_rot.prevhash) - 1);
+	g_carousel_rot.prevhash[sizeof(g_carousel_rot.prevhash) - 1] = 0;
+	g_carousel_rot.height = height;
+	g_carousel_rot.cycle = cycle;
+	g_carousel_rot.n = n;
+	g_carousel_rot.start = start;
+	g_carousel_rot.idx = idx;
+	g_carousel_rot.skipped = skipped;
+	strncpy(g_carousel_rot.pick, pick ? pick : "", sizeof(g_carousel_rot.pick) - 1);
+	g_carousel_rot.pick[sizeof(g_carousel_rot.pick) - 1] = 0;
+	strncpy(g_carousel_rot.set_hash, set_hash ? set_hash : "", sizeof(g_carousel_rot.set_hash) - 1);
+	g_carousel_rot.set_hash[sizeof(g_carousel_rot.set_hash) - 1] = 0;
+	g_carousel_rot.set_n = n;
+	for (i = 0; i < n; i++) { strncpy(g_carousel_rot.set[i], names[i], 127); g_carousel_rot.set[i][127] = 0; }
+	g_carousel_rot.updated = (uint64_t)time(NULL);
+	pthread_mutex_unlock(&g_carousel_rot.lock);
+}
+
 // Template mode (BLAKE2b): inyecta el tx-set del supplier. Single = template_file/config addr.
-// Carousel = sortea un supplier fresco al azar desde template_dir por ciclo y paga a ESE (g_carousel_supplier).
+// Carousel = rotación DETERMINISTA (prevhash-seeded round-robin) sobre los suppliers frescos de template_dir;
+// paga a ESE supplier (g_carousel_supplier). Ver el bloque de comentarios de arriba.
 static void datum_template_apply_supplier(json_t *res_val) {
 	json_error_t err;
 	const char *our_ph;
@@ -601,39 +666,109 @@ static void datum_template_apply_supplier(json_t *res_val) {
 	if (!our_ph) return;
 
 	if (datum_config.mining_blake2b_template_carousel && datum_config.mining_template_dir[0]) {
-		DIR *d = opendir(datum_config.mining_template_dir);
-		if (!d) { DLOG_WARN("carousel: no pude abrir %s", datum_config.mining_template_dir); return; }
-		static char names[512][128];
-		int n = 0, i;
+		static char cr_prev[80] = "";
+		static uint32_t cr_cycle = 0;
+		static char cr_set_hash[17] = "";
+		static char names[CAROUSEL_MAX_SET][128];
+		static char setbuf[CAROUSEL_MAX_SET * 129];
+		unsigned char h[32];
+		char set_hash[17], path[640];
+		uint64_t height = datum_json_u64(json_object_get(res_val, "height")), s = 0;
+		size_t sl = 0;
+		int n = 0, i, t, start, idx = -1, skipped = 0;
+		bool applied = false;
 		struct dirent *de;
-		while ((de = readdir(d)) && n < 512) {
-			size_t l = strlen(de->d_name);
-			if (l > 5 && l <= 132 && !strcmp(de->d_name + l - 5, ".json")) { strncpy(names[n], de->d_name, 127); names[n][127] = 0; n++; }
+		DIR *d;
+
+		// cycle counter: restarts at 0 on every new prevhash
+		if (strcmp(cr_prev, our_ph)) {
+			strncpy(cr_prev, our_ph, sizeof(cr_prev) - 1); cr_prev[sizeof(cr_prev) - 1] = 0;
+			cr_cycle = 0;
+			cr_set_hash[0] = 0;
+		} else {
+			cr_cycle++;
+		}
+
+		d = opendir(datum_config.mining_template_dir);
+		if (!d) { DLOG_WARN("carousel: no pude abrir %s", datum_config.mining_template_dir); g_carousel_supplier[0] = 0; g_carousel_supplier_name[0] = 0; return; }
+		while ((de = readdir(d)) && n < CAROUSEL_MAX_SET) {
+			size_t l = strlen(de->d_name), al;
+			int fr;
+			if (!(l > 5 && l <= 132 && !strcmp(de->d_name + l - 5, ".json"))) continue;
+			snprintf(path, sizeof(path), "%s/%s", datum_config.mining_template_dir, de->d_name);
+			fr = carousel_header_fresh(path, our_ph);
+			if (fr < 0) {
+				const char *ph;
+				sup = json_load_file(path, 0, &err);
+				ph = sup ? json_string_value(json_object_get(sup, "previousblockhash")) : NULL;
+				fr = (ph && !strcmp(ph, our_ph)) ? 1 : 0;
+				if (sup) json_decref(sup);
+			}
+			if (fr != 1) continue;
+			al = l - 5; if (al > 127) al = 127;
+			memcpy(names[n], de->d_name, al); names[n][al] = 0;   // filename sin .json = supplier addr
+			n++;
 		}
 		closedir(d);
-		if (n == 0) { DLOG_WARN("carousel: sin caches en %s", datum_config.mining_template_dir); g_carousel_supplier[0] = 0; g_carousel_supplier_name[0] = 0; return; }
-		// barajar (Fisher-Yates) y tomar el PRIMER fresco → pick aleatorio uniforme entre archivos
-		for (i = n - 1; i > 0; i--) { int j = rand() % (i + 1); char t[128]; strcpy(t, names[i]); strcpy(names[i], names[j]); strcpy(names[j], t); }
-		for (i = 0; i < n; i++) {
-			char path[640], addr[128];
-			size_t al = strlen(names[i]) - 5;
-			if (al > 127) al = 127;
-			memcpy(addr, names[i], al); addr[al] = 0;   // filename sin .json = supplier addr
-			snprintf(path, sizeof(path), "%s/%s", datum_config.mining_template_dir, names[i]);
+		if (n == 0) {
+			DLOG_WARN("carousel: ningún supplier fresco (prevhash %s) — uso tx-set propio", our_ph);
+			g_carousel_supplier[0] = 0;   // sin supplier → build_user_coinbase no agrega output supplier
+			g_carousel_supplier_name[0] = 0;
+			carousel_rot_publish(our_ph, height, cr_cycle, 0, 0, -1, 0, "", "", names);
+			return;
+		}
+		qsort(names, n, sizeof(names[0]), carousel_cmp);
+
+		// set hash = id of this cycle's fresh set; the full set is logged whenever it changes
+		for (i = 0; i < n; i++) { size_t al = strlen(names[i]); memcpy(setbuf + sl, names[i], al); sl += al; setbuf[sl++] = '\n'; }
+		datum_blake2b_256(h, (const unsigned char *)setbuf, sl);
+		snprintf(set_hash, sizeof(set_hash), "%02x%02x%02x%02x%02x%02x%02x%02x", h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+		if (strcmp(set_hash, cr_set_hash)) {
+			strcpy(cr_set_hash, set_hash);
+			for (i = 0; i < n; i += 16) {   // logger caps a line at 1023 chars → 16 addresses per line
+				char line[900];
+				size_t ll = 0;
+				int j, last = (i + 16 < n) ? i + 16 : n;
+				for (j = i; j < last; j++) {
+					int w = snprintf(line + ll, sizeof(line) - ll, "%s%s", j > i ? "," : "", names[j]);
+					if (w < 0 || ll + (size_t)w >= sizeof(line)) break;
+					ll += (size_t)w;
+				}
+				DLOG_INFO("carousel: set %s n=%d [%d..%d] %s", set_hash, n, i, last - 1, line);
+			}
+		}
+
+		// seed = BLAKE2b-256(prevhash hex ascii); start = uint64_be(seed[0..8]) % n
+		datum_blake2b_256(h, (const unsigned char *)our_ph, strlen(our_ph));
+		for (i = 0; i < 8; i++) s = (s << 8) | h[i];
+		start = (int)(s % (uint64_t)n);
+
+		for (t = 0; t < n; t++) {
+			idx = (int)(((uint64_t)start + (uint64_t)cr_cycle + (uint64_t)t) % (uint64_t)n);
+			snprintf(path, sizeof(path), "%s/%s.json", datum_config.mining_template_dir, names[idx]);
 			sup = json_load_file(path, 0, &err);
-			if (!sup) continue;
-			if (datum_template_swap_from(res_val, sup, our_ph, addr)) {
-				strncpy(g_carousel_supplier, addr, sizeof(g_carousel_supplier) - 1);
+			if (sup && datum_template_swap_from(res_val, sup, our_ph, names[idx])) {
+				strncpy(g_carousel_supplier, names[idx], sizeof(g_carousel_supplier) - 1);
 				g_carousel_supplier[127] = 0;
 				datum_template_set_supplier_name(sup);   // nombre → scriptSig del job
 				json_decref(sup);
-				return;
+				applied = true;
+				break;
 			}
-			json_decref(sup);
+			if (sup) json_decref(sup);
+			DLOG_WARN("carousel: skip idx=%d %s (no cargó/aplicó) → siguiente del schedule", idx, names[idx]);
+			skipped++;
 		}
-		DLOG_WARN("carousel: ningún supplier fresco (prevhash) — uso tx-set propio");
-		g_carousel_supplier[0] = 0;   // sin supplier → build_user_coinbase no agrega output supplier
-		g_carousel_supplier_name[0] = 0;
+		if (!applied) {
+			DLOG_WARN("carousel: ningún template fresco aplicó — uso tx-set propio");
+			g_carousel_supplier[0] = 0;
+			g_carousel_supplier_name[0] = 0;
+			carousel_rot_publish(our_ph, height, cr_cycle, n, start, -1, skipped, "", set_hash, names);
+			return;
+		}
+		DLOG_INFO("carousel: rotation h=%"PRIu64" cycle=%u n=%d start=%d skipped=%d idx=%d pick=%s set=%s prevhash=%s",
+			height, cr_cycle, n, start, skipped, idx, names[idx], set_hash, our_ph);
+		carousel_rot_publish(our_ph, height, cr_cycle, n, start, idx, skipped, names[idx], set_hash, names);
 		return;
 	}
 

@@ -10,6 +10,12 @@ ported to **Bitcoin-BLAKE2b** and extended with:
   own address as username; every cycle they mine a different sovereign block.
 - **Template Suppliers** — anyone running a BLAKE2b full node can publish a clean (`datacarrier=0`)
   template into the rotation. No hashrate needed.
+- **Deterministic rotation** — the Carousel serves suppliers in a round-robin whose order is fixed by
+  the previous block hash: `pick = set[(start + cycle) % n]`, `start = BLAKE2b-256(prevhash) % n`,
+  `set` = every fresh valid template, sorted. No weight, priority or allow-list in the selection path;
+  every valid supplier is served exactly once per `n` cycles. Live on the API (`GET /carousel`), logged
+  every cycle, and recomputable by anyone with `tools/verify_carousel_rotation.py`.
+  See `docs/design/carousel-rotation.md`.
 - **Non-custodial split, in the block's own coinbase** — the finder keeps **96%**, the supplier whose
   template won earns **3%**, the pool takes **1%** (bootstrap split; target 98/1/1 at critical mass).
   Nothing is ever held by the pool.

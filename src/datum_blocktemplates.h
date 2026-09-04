@@ -198,6 +198,30 @@ typedef struct {
 
 extern const char *datum_blocktemplates_error;
 
+#include <pthread.h>
+#include <stdint.h>
+
+// Carousel — deterministic rotation state (BLAKE2b template mode).
+// Written by the template thread every work cycle, read by the API (/carousel).
+// Anyone can recompute `pick` from prevhash + the sorted fresh set + cycle (see datum_blocktemplates.c).
+#define CAROUSEL_MAX_SET 512
+typedef struct {
+	pthread_mutex_t lock;
+	char prevhash[80];
+	uint64_t height;
+	uint64_t updated;    // unix time of the last cycle
+	uint32_t cycle;      // work cycles since this prevhash was first seen (0-based)
+	int n;               // fresh suppliers (cached template at this prevhash)
+	int start;           // uint64_be(BLAKE2b-256(prevhash hex)[0..8]) % n
+	int idx;             // (start + cycle + skipped) % n ; -1 = none applied
+	int skipped;         // scheduled templates that failed to load/apply this cycle
+	char pick[128];      // supplier address served this cycle
+	char set_hash[17];   // BLAKE2b-256(set joined by "\n")[0..8] hex
+	int set_n;
+	char set[CAROUSEL_MAX_SET][128];
+} T_CAROUSEL_ROTATION;
+extern T_CAROUSEL_ROTATION g_carousel_rot;
+
 int datum_template_init(void);
 bool datum_gbt_parse_header_fields(json_t *gbt, T_DATUM_TEMPLATE_DATA *tdata);
 T_DATUM_TEMPLATE_DATA *datum_gbt_parser(json_t *gbt);

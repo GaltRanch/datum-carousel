@@ -758,6 +758,44 @@ int datum_api_cmd(struct MHD_Connection *connection, char *post, int len) {
 	return datum_api_submit_uncached_response(connection, MHD_HTTP_OK, response);
 }
 
+// GET /carousel — live state of the deterministic Carousel rotation (JSON). Public data: anyone can
+// recompute `pick` from prevhash + set + cycle with the rule below (see datum_blocktemplates.c).
+int datum_api_carousel(struct MHD_Connection *connection) {
+	struct MHD_Response *response;
+	json_t *root = json_object(), *set = json_array();
+	char *out;
+	int i;
+
+	pthread_mutex_lock(&g_carousel_rot.lock);
+	json_object_set_new(root, "carousel", json_boolean(datum_config.mining_blake2b_template_carousel));
+	json_object_set_new(root, "prevhash", json_string(g_carousel_rot.prevhash));
+	json_object_set_new(root, "height", json_integer((json_int_t)g_carousel_rot.height));
+	json_object_set_new(root, "updated", json_integer((json_int_t)g_carousel_rot.updated));
+	json_object_set_new(root, "cycle", json_integer((json_int_t)g_carousel_rot.cycle));
+	json_object_set_new(root, "n", json_integer(g_carousel_rot.n));
+	json_object_set_new(root, "start", json_integer(g_carousel_rot.start));
+	json_object_set_new(root, "skipped", json_integer(g_carousel_rot.skipped));
+	json_object_set_new(root, "idx", json_integer(g_carousel_rot.idx));
+	json_object_set_new(root, "pick", json_string(g_carousel_rot.pick));
+	json_object_set_new(root, "set_hash", json_string(g_carousel_rot.set_hash));
+	for (i = 0; i < g_carousel_rot.set_n && i < CAROUSEL_MAX_SET; i++) json_array_append_new(set, json_string(g_carousel_rot.set[i]));
+	pthread_mutex_unlock(&g_carousel_rot.lock);
+	json_object_set_new(root, "set", set);
+	json_object_set_new(root, "rule", json_string(
+		"set = supplier addresses whose cached template has previousblockhash == prevhash, sorted bytewise; "
+		"seed = BLAKE2b-256(prevhash lowercase hex ASCII); start = uint64_be(seed[0:8]) % n; "
+		"cycle = work cycles since prevhash was first seen (0-based); pick = set[(start + cycle + skipped) % n]; "
+		"set_hash = BLAKE2b-256(set joined by '\\n')[0:8] hex"));
+
+	out = json_dumps(root, JSON_COMPACT);
+	json_decref(root);
+	if (!out) return MHD_NO;
+	response = MHD_create_response_from_buffer(strlen(out), out, MHD_RESPMEM_MUST_FREE);
+	MHD_add_response_header(response, "Content-Type", "application/json");
+	MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+	return datum_api_submit_uncached_response(connection, MHD_HTTP_OK, response);
+}
+
 int datum_api_coinbaser(struct MHD_Connection *connection) {
 	struct MHD_Response *response;
 	T_DATUM_STRATUM_JOB *sjob;
@@ -1829,6 +1867,9 @@ enum MHD_Result datum_api_answer(void *cls, struct MHD_Connection *connection, c
 			}
 			if (!strcmp(url, "/coinbaser")) {
 				return datum_api_coinbaser(connection);
+			}
+			if (!strcmp(url, "/carousel")) {
+				return datum_api_carousel(connection);
 			}
 			if (!strcmp(url, "/config")) {
 				if (int_method == 2 && con_info) {
