@@ -1,0 +1,66 @@
+{
+  "//": "EXAMPLE \u2014 dedicated per-supplier gateway (single template_file). Generated per supplier in production.",
+  "bitcoind": {
+    "rpcuser": "RPC_USER",
+    "rpcpassword": "RPC_PASSWORD",
+    "rpcurl": "127.0.0.1:8332",
+    "work_update_seconds": 20,
+    "notify_fallback": true
+  },
+  "stratum": {
+    "listen_port": 22030,
+    "max_clients_per_thread": 512,
+    "max_threads": 4,
+    "max_clients": 2048,
+    "vardiff_min": 1,
+    "vardiff_target_shares_min": 16,
+    "vardiff_quickdiff_count": 16,
+    "vardiff_quickdiff_delta": 16,
+    "share_stale_seconds": 120,
+    "fingerprint_miners": true,
+    "idle_timeout_no_subscribe": 60,
+    "idle_timeout_no_shares": 7200,
+    "idle_timeout_max_last_work": 0,
+    "listen_addr": "0.0.0.0"
+  },
+  "mining": {
+    "pool_address": "YOUR_POOL_FEE_ADDRESS",
+    "coinbase_tag_primary": "PyBLOCK-TMPLT-BLAKE2b",
+    "coinbase_tag_secondary": "",
+    "coinbase_unique_id": 4372,
+    "save_submitblocks_dir": "/var/lib/datum/submitblocks",
+    "pow_algorithm": "blake2b",
+    "blake2b_personal_lotto": true,
+    "blake2b_template": true,
+    "template_file": "/var/lib/datum/template_live/YOUR_SUPPLIER_ADDRESS.json",
+    "template_supplier_address": "YOUR_SUPPLIER_ADDRESS",
+    "template_supplier_bps": 300,
+    "template_pool_bps": 100
+  },
+  "api": {
+    "listen_addr": "127.0.0.1",
+    "listen_port": 41030,
+    "admin_password": "CHANGE_ME_ADMIN_PASSWORD"
+  },
+  "extra_block_submissions": {
+    "urls": []
+  },
+  "logger": {
+    "log_to_console": false,
+    "log_to_stderr": false,
+    "log_to_file": true,
+    "log_file": "/var/log/datum/tmpl-b2b-17V7jCjBbNZ32f1yDc2YrB3EF15Y2PNxpF.log",
+    "log_rotate_daily": true,
+    "log_level_file": 1
+  },
+  "datum": {
+    "pool_host": "",
+    "pool_port": 28915,
+    "pool_pubkey": "",
+    "pool_pass_workers": true,
+    "pool_pass_full_users": true,
+    "always_pay_self": true,
+    "pooled_mining_only": false,
+    "protocol_global_timeout": 30
+  }
+}

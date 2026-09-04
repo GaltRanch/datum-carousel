@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>The Carousel · PyBLØCK BLAKE2b Whitepaper</title>
+<meta name="description" content="How the PyBLØCK Carousel works: a rotating solo pool over independent, spam-free block templates.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23b96bff' stroke-width='2.6'/%3E%3Cline x1='10' y1='22' x2='22' y2='10' stroke='%23b96bff' stroke-width='2.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;0,800;1,400&family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+  :root{
+    --bg:#000; --panel:#0a0510; --panel2:#0d0716;
+    --fg:#dcd0ec; --fg-soft:#a99cc4; --faint:#6c5c86;
+    --pp:#b96bff; --pp-dim:#9a7ad6; --line:rgba(185,107,255,.18); --line2:rgba(185,107,255,.09);
+    --yellow:#ffec00; --ok:#34d399;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+    --mono:'IBM Plex Mono',ui-monospace,'DejaVu Sans Mono',monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--fg); font-family:var(--serif); line-height:1.72;
+    font-size:17px; -webkit-font-smoothing:antialiased; }
+  /* subtle purple vignette so pure black isn't flat */
+  .doc{ max-width:760px; margin:0 auto; padding:0 26px 90px;
+    background:
+      radial-gradient(120% 60% at 50% -5%, rgba(124,58,237,.10), transparent 60%); }
+  ::selection{ background:rgba(185,107,255,.3); color:#fff; }
+  a{ color:var(--pp); text-decoration:none; border-bottom:1px solid var(--line); }
+  a:hover{ border-bottom-color:var(--pp); }
+
+  /* ── masthead ── */
+  .mast{ text-align:center; padding:62px 0 26px; border-bottom:1px solid var(--line); }
+  .mark{ width:70px; height:70px; margin:0 auto 20px; display:block;
+    filter:drop-shadow(0 0 14px rgba(185,107,255,.55)); }
+  .brand{ display:inline-flex; align-items:baseline; gap:9px; margin-bottom:30px; }
+  .brand .be{ font-family:'Press Start 2P',var(--mono); font-size:10px; color:#efe6fb; }
+  .brand .pix{ font-family:'Press Start 2P',var(--mono); font-size:17px; color:var(--pp);
+    -webkit-text-stroke:1.5px #1b1226; paint-order:stroke fill; text-shadow:3px 3px 0 var(--yellow); letter-spacing:1px; }
+  .brand .rune{ font-family:var(--serif); font-size:22px; color:var(--pp); }
+  .doctype{ font-family:var(--mono); font-size:11px; letter-spacing:4px; text-transform:uppercase;
+    color:var(--pp-dim); margin-bottom:14px; }
+  h1.title{ font-family:var(--serif); font-weight:800; font-size:clamp(38px,7vw,62px); line-height:1.04;
+    letter-spacing:-.5px; margin:0 0 16px; text-wrap:balance; color:#f4eeff; }
+  .subtitle{ font-size:19px; font-style:italic; color:var(--fg-soft); max-width:46ch; margin:0 auto; text-wrap:balance; }
+  .meta{ display:flex; gap:10px 22px; justify-content:center; flex-wrap:wrap; margin-top:26px;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:1px; text-transform:uppercase; color:var(--faint); }
+  .meta b{ color:var(--pp-dim); font-weight:600; }
+
+  /* ── abstract ── */
+  .abstract{ margin:40px 0 8px; padding:22px 26px; background:var(--panel); border:1px solid var(--line);
+    border-left:3px solid var(--pp); border-radius:4px; }
+  .abstract .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase;
+    color:var(--pp); margin-bottom:9px; }
+  .abstract p{ margin:0; font-size:16.5px; color:var(--fg); }
+
+  /* ── sections ── */
+  section{ margin-top:52px; }
+  h2{ font-family:var(--serif); font-weight:800; font-size:27px; color:#f2ecff; margin:0 0 6px;
+    text-wrap:balance; display:flex; align-items:baseline; gap:14px; }
+  h2 .n{ font-family:var(--mono); font-size:14px; font-weight:600; color:var(--pp); flex:0 0 auto;
+    border:1px solid var(--line); border-radius:5px; padding:3px 8px; line-height:1;
+    position:relative; top:-3px; }
+  h2 + .rule{ height:1px; background:linear-gradient(90deg,var(--pp),transparent); margin:12px 0 18px; opacity:.5; }
+  h3{ font-family:var(--serif); font-weight:600; font-size:19px; color:#e7ddfa; margin:26px 0 4px; }
+  p{ margin:14px 0; }
+  strong{ color:#f0e9ff; font-weight:600; }
+  em{ color:var(--fg-soft); }
+
+  ul,ol{ margin:14px 0; padding-left:24px; }
+  li{ margin:7px 0; }
+  li::marker{ color:var(--pp); }
+
+  .mono{ font-family:var(--mono); }
+  code{ font-family:var(--mono); font-size:.86em; color:#e0cffb; background:var(--panel2);
+    border:1px solid var(--line2); border-radius:5px; padding:1.5px 6px; }
+  .endpoint{ display:block; font-family:var(--mono); font-size:14px; color:var(--pp);
+    background:#000; border:1px solid var(--line); border-radius:7px; padding:12px 15px; margin:16px 0;
+    overflow-x:auto; white-space:nowrap; }
+
+  /* split cards */
+  .split{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:22px 0 4px; }
+  @media(max-width:560px){ .split{ grid-template-columns:1fr; } }
+  .split .c{ border:1px solid var(--line); background:var(--panel); border-radius:8px; padding:18px 14px; text-align:center; }
+  .split .big{ font-family:var(--mono); font-size:34px; font-weight:600; color:var(--pp); line-height:1; font-variant-numeric:tabular-nums; }
+  .split .l{ font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:#efe6fb; margin-top:8px; font-family:var(--mono); }
+  .split .s{ font-size:14px; color:var(--fg-soft); margin-top:6px; font-style:italic; }
+
+  /* callout */
+  .note{ margin:20px 0; padding:16px 20px; background:var(--panel2); border:1px solid var(--line);
+    border-radius:6px; font-size:15.5px; color:var(--fg-soft); }
+  .note b{ color:var(--pp); }
+
+  /* footer */
+  .foot{ margin-top:66px; padding-top:22px; border-top:1px solid var(--line); text-align:center;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:1px; color:var(--faint); line-height:2; }
+  .foot .rune{ color:var(--pp); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="mast">
+    <svg class="mark" viewBox="0 0 32 32" role="img" aria-label="PyBLØCK mark">
+      <rect width="32" height="32" fill="#000"></rect>
+      <circle cx="16" cy="16" r="8" fill="none" stroke="#b96bff" stroke-width="2.6"></circle>
+      <line x1="10" y1="22" x2="22" y2="10" stroke="#b96bff" stroke-width="2.6"></line>
+    </svg>
+    <div class="brand"><span class="be">be</span><span class="pix">PYBLØCK</span><span class="rune">ᛒ</span></div>
+    <div class="doctype">BLAKE2b · Whitepaper</div>
+    <h1 class="title">The Carousel</h1>
+    <p class="subtitle">A rotating solo pool where miners cycle across independent, spam-free block templates — and keep what they find.</p>
+    <div class="meta"><span><b>Chain</b> BLAKE2b</span><span><b>Stratum</b> :30110</span><span><b>Model</b> non-custodial</span><span><b>Status</b> live · mainnet</span></div>
+  </header>
+
+  <div class="abstract">
+    <div class="lbl">Abstract</div>
+    <p>Conventional mining pools concentrate a dangerous power: the operator alone decides what every miner's block contains. The Carousel removes that operator. Independent <strong>Template Suppliers</strong> each publish their own clean block template, and the Carousel serves those templates to miners <strong>in rotation</strong> — a different sovereign block every cycle. A miner points ordinary SV1 hardware at one endpoint with their own address; when they find a block they keep <strong>96%</strong> of it, on-chain, while the supplier whose template won earns <strong>3%</strong>. No custody, no accounts, no single party dictating the block.</p>
+  </div>
+
+  <section>
+    <h2><span class="n">1</span> The problem with pools</h2>
+    <div class="rule"></div>
+    <p>Solo mining is fair but high-variance; pooled mining smooths the variance but hands one operator the right to construct every block. That operator chooses the transactions, and increasingly is pressured over what it must include or exclude. Miners contribute the hashrate that gives a block its weight, yet have <em>no say</em> in what they are hashing.</p>
+    <p>The fix is not another operator with better intentions — it is to make block construction <strong>plural</strong>. If many independent parties each offer a full, valid template, and hashrate is spread across all of them, then no single party decides what a block looks like. The Carousel is the mechanism that spreads it.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span> The rotating pool</h2>
+    <div class="rule"></div>
+    <p>The Carousel is a stratum endpoint on <code>:30110</code> backed by a rotating template feed. At any instant it is serving exactly one supplier's block template to all connected miners. Every cycle — on the order of <strong>~20 seconds</strong>, and immediately on every new network block — it <strong>swaps</strong> to the next active supplier's template.</p>
+    <p>Because suppliers republish on every block, the template you mine is always built on the current chain tip. Over a few minutes your hashrate touches every active supplier in turn. The live roster is visible on the Carousel page as a ring: one arc per active supplier, the bright arc being mined right now.</p>
+    <h3>What the miner sees</h3>
+    <p>Nothing unusual. It is ordinary stratum v1: subscribe, authorize with your address, receive work, submit shares. The rotation happens upstream — from the miner's side it is simply a pool that always has fresh, clean work.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span> Clean templates</h2>
+    <div class="rule"></div>
+    <p>Every template on the Carousel comes from a node running <code>datacarrier=0</code> — no <span class="mono">OP_RETURN</span> arbitrary-data outputs. Templates that carry data payloads are rejected at the door, so what rotates through the pool is <strong>spam-free and sovereign</strong>: blocks a full-node operator chose to build, not blocks stuffed to order.</p>
+    <p>This is the difference between renting your hashrate to whatever a pool dictates and lending it to a rotating set of operators who each stand behind a clean block. You never mine someone else's dictated block.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span> Mining on the Carousel</h2>
+    <div class="rule"></div>
+    <p>Point any SV1 miner — GPU, CPU, or ASIC — at the endpoint, using <strong>your own Bitcoin address</strong> as the username. The address is both your login and your payout: a block you find pays you directly.</p>
+    <span class="endpoint">stratum+tcp://pool.pyblock.xyz:30110</span>
+    <ul>
+      <li><strong>Username</strong> — your BTC address (<code>bc1q…</code> / <code>1…</code> / <code>3…</code>)</li>
+      <li><strong>Password</strong> — <code>x</code></li>
+      <li><strong>Protocol</strong> — Stratum v1 · BLAKE2b proof-of-work</li>
+    </ul>
+    <p>There is no registration and nothing to install on the pool's side. Your address appearing in shares is your entire account.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span> The reward model</h2>
+    <div class="rule"></div>
+    <p>The Carousel is <strong>solo-style</strong>: you are paid when <em>you</em> find a block, not for shares averaged across strangers. When a block is found, its reward — subsidy plus fees — is split <strong>in the coinbase of that block</strong>, on-chain, the instant it is mined:</p>
+    <div class="split">
+      <div class="c"><div class="big">96%</div><div class="l">Miner</div><div class="s">the finder keeps it</div></div>
+      <div class="c"><div class="big">3%</div><div class="l">Supplier</div><div class="s">whose template won</div></div>
+      <div class="c"><div class="big">1%</div><div class="l">PyBLØCK</div><div class="s">pool fee</div></div>
+    </div>
+    <p>The template that wins is the one being served at the moment the block is built, so the winning supplier's 3% is written straight into the coinbase — no settlement layer, no payout batch, no custody. Each block's supplier and finder are both recorded and shown publicly.</p>
+    <div class="note"><b>Non-custodial by construction.</b> PyBLØCK never holds a satoshi of the reward. The split exists only as coinbase outputs in the block you mined; if the pool vanished tomorrow, a block already found is already paid.</div>
+  </section>
+
+  <section>
+    <h2><span class="n">6</span> Carousel vs. a conventional pool</h2>
+    <div class="rule"></div>
+    <ul>
+      <li><strong>Block construction</strong> — conventional: one operator's template, always. Carousel: many independent suppliers, in rotation.</li>
+      <li><strong>Transaction policy</strong> — conventional: whatever the operator (or its pressures) dictate. Carousel: clean, <code>datacarrier=0</code>, chosen by sovereign full nodes.</li>
+      <li><strong>Payout</strong> — conventional: pool credits a balance it custodies, then pays out later. Carousel: on-chain in the coinbase, immediately, non-custodial.</li>
+      <li><strong>Your say</strong> — conventional: none. Carousel: run a node and become a supplier yourself.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">7</span> Get started</h2>
+    <div class="rule"></div>
+    <p>Mine the rotation today with the address you already control:</p>
+    <span class="endpoint">stratum+tcp://pool.pyblock.xyz:30110  ·  user: YOUR_BTC_ADDRESS  ·  pass: x</span>
+    <p>To supply your own clean templates to the rotation — and earn 3% when miners find your block — see the companion paper, <a href="suppliers_whitepaper.html"><em>Template Suppliers</em></a>. It takes one command and a BLAKE2b node.</p>
+  </section>
+
+  <footer class="foot">
+    <div>be <span style="color:#efe6fb">PYBLØCK</span> <span class="rune">ᛒ</span> · the Bitcoin BLAKE2b pool</div>
+    <div>non-custodial · you keep 99%+ · b.pyblock.xyz</div>
+  </footer>
+
+</div>
+
+</body>
+</html>

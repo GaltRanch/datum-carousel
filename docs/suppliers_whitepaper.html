@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Template Suppliers · PyBLØCK BLAKE2b Whitepaper</title>
+<meta name="description" content="How to become a PyBLØCK Template Supplier: publish your node block template and earn 1% on-chain.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23b96bff' stroke-width='2.6'/%3E%3Cline x1='10' y1='22' x2='22' y2='10' stroke='%23b96bff' stroke-width='2.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;0,800;1,400&family=IBM+Plex+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+  :root{
+    --bg:#000; --panel:#0a0510; --panel2:#0d0716;
+    --fg:#dcd0ec; --fg-soft:#a99cc4; --faint:#6c5c86;
+    --pp:#b96bff; --pp-dim:#9a7ad6; --line:rgba(185,107,255,.18); --line2:rgba(185,107,255,.09);
+    --yellow:#ffec00; --ok:#34d399; --warn:#fbbf24;
+    --serif:'Spectral',Georgia,'Times New Roman',serif;
+    --mono:'IBM Plex Mono',ui-monospace,'DejaVu Sans Mono',monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--fg); font-family:var(--serif); line-height:1.72;
+    font-size:17px; -webkit-font-smoothing:antialiased; }
+  .doc{ max-width:760px; margin:0 auto; padding:0 26px 90px;
+    background:radial-gradient(120% 60% at 50% -5%, rgba(124,58,237,.10), transparent 60%); }
+  ::selection{ background:rgba(185,107,255,.3); color:#fff; }
+  a{ color:var(--pp); text-decoration:none; border-bottom:1px solid var(--line); }
+  a:hover{ border-bottom-color:var(--pp); }
+
+  .mast{ text-align:center; padding:62px 0 26px; border-bottom:1px solid var(--line); }
+  .mark{ width:70px; height:70px; margin:0 auto 20px; display:block; filter:drop-shadow(0 0 14px rgba(185,107,255,.55)); }
+  .brand{ display:inline-flex; align-items:baseline; gap:9px; margin-bottom:30px; }
+  .brand .be{ font-family:'Press Start 2P',var(--mono); font-size:10px; color:#efe6fb; }
+  .brand .pix{ font-family:'Press Start 2P',var(--mono); font-size:17px; color:var(--pp);
+    -webkit-text-stroke:1.5px #1b1226; paint-order:stroke fill; text-shadow:3px 3px 0 var(--yellow); letter-spacing:1px; }
+  .brand .rune{ font-family:var(--serif); font-size:22px; color:var(--pp); }
+  .doctype{ font-family:var(--mono); font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--pp-dim); margin-bottom:14px; }
+  h1.title{ font-family:var(--serif); font-weight:800; font-size:clamp(34px,6.4vw,58px); line-height:1.05;
+    letter-spacing:-.5px; margin:0 0 16px; text-wrap:balance; color:#f4eeff; }
+  .subtitle{ font-size:19px; font-style:italic; color:var(--fg-soft); max-width:48ch; margin:0 auto; text-wrap:balance; }
+  .meta{ display:flex; gap:10px 22px; justify-content:center; flex-wrap:wrap; margin-top:26px;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:1px; text-transform:uppercase; color:var(--faint); }
+  .meta b{ color:var(--pp-dim); font-weight:600; }
+
+  .abstract{ margin:40px 0 8px; padding:22px 26px; background:var(--panel); border:1px solid var(--line);
+    border-left:3px solid var(--pp); border-radius:4px; }
+  .abstract .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase; color:var(--pp); margin-bottom:9px; }
+  .abstract p{ margin:0; font-size:16.5px; color:var(--fg); }
+
+  section{ margin-top:52px; }
+  h2{ font-family:var(--serif); font-weight:800; font-size:27px; color:#f2ecff; margin:0 0 6px;
+    text-wrap:balance; display:flex; align-items:baseline; gap:14px; }
+  h2 .n{ font-family:var(--mono); font-size:14px; font-weight:600; color:var(--pp); flex:0 0 auto;
+    border:1px solid var(--line); border-radius:5px; padding:3px 8px; line-height:1; position:relative; top:-3px; }
+  h2 + .rule{ height:1px; background:linear-gradient(90deg,var(--pp),transparent); margin:12px 0 18px; opacity:.5; }
+  h3{ font-family:var(--serif); font-weight:600; font-size:19px; color:#e7ddfa; margin:26px 0 4px; }
+  p{ margin:14px 0; }
+  strong{ color:#f0e9ff; font-weight:600; }
+  em{ color:var(--fg-soft); }
+  ul,ol{ margin:14px 0; padding-left:24px; }
+  li{ margin:7px 0; }
+  li::marker{ color:var(--pp); }
+
+  .mono{ font-family:var(--mono); }
+  code{ font-family:var(--mono); font-size:.86em; color:#e0cffb; background:var(--panel2);
+    border:1px solid var(--line2); border-radius:5px; padding:1.5px 6px; }
+  .endpoint{ display:block; font-family:var(--mono); font-size:13.5px; color:var(--pp);
+    background:#000; border:1px solid var(--line); border-radius:7px; padding:12px 15px; margin:16px 0;
+    overflow-x:auto; white-space:nowrap; }
+  .cmd{ display:block; font-family:var(--mono); font-size:13.5px; color:#e0cffb; background:#000;
+    border:1px solid var(--line); border-left:3px solid var(--pp); border-radius:7px; padding:14px 16px; margin:16px 0;
+    overflow-x:auto; white-space:nowrap; }
+  .cmd .flag{ color:var(--pp); }
+
+  .note{ margin:20px 0; padding:16px 20px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; font-size:15.5px; color:var(--fg-soft); }
+  .note b{ color:var(--pp); }
+  .warn{ border-color:rgba(251,191,36,.4); }
+  .warn b{ color:var(--warn); }
+
+  .steps{ list-style:none; counter-reset:s; padding-left:0; margin:18px 0; }
+  .steps li{ counter-increment:s; position:relative; padding:12px 0 12px 44px; border-bottom:1px solid var(--line2); }
+  .steps li:last-child{ border-bottom:0; }
+  .steps li::before{ content:counter(s); position:absolute; left:0; top:12px; width:28px; height:28px;
+    display:grid; place-items:center; font-family:var(--mono); font-size:13px; color:var(--pp);
+    border:1px solid var(--line); border-radius:50%; }
+
+  .foot{ margin-top:66px; padding-top:22px; border-top:1px solid var(--line); text-align:center;
+    font-family:var(--mono); font-size:11.5px; letter-spacing:1px; color:var(--faint); line-height:2; }
+  .foot .rune{ color:var(--pp); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="mast">
+    <svg class="mark" viewBox="0 0 32 32" role="img" aria-label="PyBLØCK mark">
+      <rect width="32" height="32" fill="#000"></rect>
+      <circle cx="16" cy="16" r="8" fill="none" stroke="#b96bff" stroke-width="2.6"></circle>
+      <line x1="10" y1="22" x2="22" y2="10" stroke="#b96bff" stroke-width="2.6"></line>
+    </svg>
+    <div class="brand"><span class="be">be</span><span class="pix">PYBLØCK</span><span class="rune">ᛒ</span></div>
+    <div class="doctype">BLAKE2b · Whitepaper</div>
+    <h1 class="title">Template Suppliers</h1>
+    <p class="subtitle">Publish your own node's block template to the pool in one command — and earn 1% on-chain when a miner finds your block.</p>
+    <div class="meta"><span><b>Node</b> Knots ≥ 29.4 rc4</span><span><b>Rule</b> blake2b</span><span><b>Reward</b> 1% coinbase</span><span><b>Custody</b> none</span></div>
+  </header>
+
+  <div class="abstract">
+    <div class="lbl">Abstract</div>
+    <p>A Template Supplier is anyone who runs a BLAKE2b full node and lets the Carousel serve <em>their</em> block template to miners. You decide what the block contains; miners on the rotation build on it; if one finds the block, your <strong>3%</strong> is paid straight into the coinbase, to your address, with no custody in between. Supplying takes a single command, needs only <code>bitcoin-cli</code> and <code>curl</code>, and turns your sovereign transaction selection into a share of real block rewards.</p>
+  </div>
+
+  <section>
+    <h2><span class="n">1</span> Why supply templates</h2>
+    <div class="rule"></div>
+    <p>Every block is a statement about which transactions matter. In a normal pool, one operator makes that statement for everyone. Supplying inverts it: <strong>your node, your policy, your block</strong>. You are not renting hashrate — you are contributing a clean, valid template that miners can choose to build on, and being paid when they succeed.</p>
+    <p>The more independent suppliers there are, the more plural block construction on the chain becomes. Each supplier is one more party the network does not have to trust a pool operator to be.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span> Requirements</h2>
+    <div class="rule"></div>
+    <ul>
+      <li><strong>A BLAKE2b-capable node</strong> — Bitcoin Knots <strong>≥ 29.4 (rc4)</strong> following the BLAKE2b fork, with RPC reachable. A standard SHA-256 node <em>cannot</em> supply: it rejects the <code>blake2b</code> template rule outright.</li>
+      <li><strong><code>datacarrier=0</code></strong> in <code>bitcoin.conf</code> — templates carrying <span class="mono">OP_RETURN</span> data are refused by the pool (see §4).</li>
+      <li><strong>Client tools</strong> — only <code>bitcoin-cli</code> and <code>curl</code>. Nothing is installed on your machine beyond a small background loop.</li>
+      <li><strong>An address</strong> — where your 1% is paid. It is the only identity the pool needs.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span> Publish in one command</h2>
+    <div class="rule"></div>
+    <p>One line registers you and starts publishing:</p>
+    <span class="cmd">curl -fsSL https://b.pyblock.xyz:8443/join | sh -s -- <span class="flag">YOUR_BTC_ADDRESS</span> "Your Name"</span>
+    <p>The script auto-detects your node (it tries <code>bitcoin-cli</code> RPC ports <code>8342 → 9332 → 8332</code>, then the default) and confirms it can produce a BLAKE2b template with <code>getblocktemplate '{"rules":["segwit","blake2b"]}'</code>. On success it prints your supplier card and begins the publish loop. Your name is optional — see §5 for how identity is resolved.</p>
+    <p>Miners then reach your template through the Carousel:</p>
+    <span class="endpoint">stratum+tcp://pool.pyblock.xyz:30110</span>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span> The clean-template policy</h2>
+    <div class="rule"></div>
+    <p>PyBLØCK relays only spam-free, sovereign blocks. Before it starts, the join script inspects your own <code>getblocktemplate</code> and checks whether any transaction carries an <span class="mono">OP_RETURN</span> output. If your node accepts data carriers, <strong>every template you publish is rejected</strong>.</p>
+    <div class="note warn"><b>Set datacarrier=0.</b> Add it to <code>bitcoin.conf</code> and restart before joining. This is not cosmetic — it is the property that makes a Carousel block worth mining: no arbitrary data, no pay-to-include, just the transactions a sovereign node chose on merit.</div>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span> How publishing works</h2>
+    <div class="rule"></div>
+    <p>The command installs a small background loop that pushes your node's current template to the pool over HTTP. It is <strong>block-driven</strong>:</p>
+    <ol class="steps">
+      <li><strong>On every new block</strong> — it republishes immediately, so your template is always built on the current tip.</li>
+      <li><strong>Every ~20 seconds</strong> — it republishes to fold in fresh mempool transactions and fees.</li>
+      <li><strong>On each push</strong> — it sends the raw template with headers identifying you: <code>X-PyBLOCK-User</code> (address), <code>X-PyBLOCK-Name</code>, and <code>X-PyBLOCK-UA</code> (your node's subversion).</li>
+    </ol>
+    <h3>Identity</h3>
+    <p>Your label on the site and the Carousel is resolved in priority order: the <strong>name you chose</strong> → your node's <strong>UA</strong> (uacomment) → your address. Re-running the command replaces any previous loop; keep the node running to stay in the rotation.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">6</span> Privacy</h2>
+    <div class="rule"></div>
+    <p>Publish over Tor and your IP is never sent — the template is pushed through the pool's onion service instead of clearnet:</p>
+    <span class="cmd"><span class="flag">PYBLOCK_NET=tor</span> curl -fsSL https://b.pyblock.xyz:8443/join | sh -s -- bc1q… "Name"</span>
+    <p>This requires <code>torsocks</code> on your machine. Everything else is identical; only the transport changes.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">7</span> Getting paid</h2>
+    <div class="rule"></div>
+    <p>When a Carousel miner mines <em>your</em> template and finds the block, your <strong>3%</strong> of the reward is written into that block's coinbase — on-chain, to your address, automatically. The full split is fixed:</p>
+    <p style="text-align:center;font-family:var(--mono);font-size:15px;color:var(--pp);margin:20px 0;">96% miner &nbsp;·&nbsp; 3% supplier &nbsp;·&nbsp; 1% PyBLØCK</p>
+    <div class="note"><b>Nothing to withdraw.</b> There is no custodied balance and no payout schedule. Your earnings exist only as a coinbase output in a block a miner already found — the most final settlement Bitcoin has.</div>
+  </section>
+
+  <footer class="foot">
+    <div>be <span style="color:#efe6fb">PYBLØCK</span> <span class="rune">ᛒ</span> · the Bitcoin BLAKE2b pool</div>
+    <div>your node · your block · your 1% · b.pyblock.xyz</div>
+  </footer>
+
+</div>
+
+</body>
+</html>

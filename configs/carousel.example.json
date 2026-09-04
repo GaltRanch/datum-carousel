@@ -1,0 +1,68 @@
+{
+  "//": "EXAMPLE \u2014 Carousel gateway (rotating supplier templates). Replace RPC/API secrets and addresses. Split: template_supplier_bps / template_pool_bps (bps of coinbase).",
+  "bitcoind": {
+    "rpcuser": "RPC_USER",
+    "rpcpassword": "RPC_PASSWORD",
+    "rpcurl": "127.0.0.1:8332",
+    "work_update_seconds": 20,
+    "notify_fallback": true
+  },
+  "stratum": {
+    "listen_port": 30110,
+    "max_clients_per_thread": 2048,
+    "max_threads": 16,
+    "max_clients": 32768,
+    "vardiff_min": 4096,
+    "vardiff_target_shares_min": 16,
+    "vardiff_quickdiff_count": 16,
+    "vardiff_quickdiff_delta": 16,
+    "share_stale_seconds": 120,
+    "fingerprint_miners": true,
+    "idle_timeout_no_subscribe": 60,
+    "idle_timeout_no_shares": 7200,
+    "idle_timeout_max_last_work": 0,
+    "listen_addr": "0.0.0.0"
+  },
+  "mining": {
+    "pool_address": "YOUR_POOL_FEE_ADDRESS",
+    "coinbase_tag_primary": "PyBLOCK-CAROUSEL-BLAKE2b",
+    "coinbase_tag_secondary": "",
+    "coinbase_unique_id": 4342,
+    "save_submitblocks_dir": "/var/lib/datum/submitblocks",
+    "pow_algorithm": "blake2b",
+    "blake2b_personal_lotto": true,
+    "blake2b_template": true,
+    "blake2b_template_carousel": true,
+    "template_dir": "/var/lib/datum/template_live",
+    "template_supplier_bps": 300,
+    "template_pool_bps": 100
+  },
+  "api": {
+    "listen_addr": "127.0.0.1",
+    "listen_port": 7156,
+    "admin_password": "CHANGE_ME_ADMIN_PASSWORD"
+  },
+  "extra_block_submissions": {
+    "urls": []
+  },
+  "logger": {
+    "log_to_console": false,
+    "log_to_stderr": false,
+    "log_to_file": true,
+    "log_file": "/var/log/datum/carousel_mainnet.json.log",
+    "log_rotate_daily": true,
+    "log_calling_function": false,
+    "log_level_console": 2,
+    "log_level_file": 1
+  },
+  "datum": {
+    "pool_host": "",
+    "pool_port": 28915,
+    "pool_pubkey": "",
+    "pool_pass_workers": true,
+    "pool_pass_full_users": true,
+    "always_pay_self": true,
+    "pooled_mining_only": false,
+    "protocol_global_timeout": 30
+  }
+}

@@ -1,0 +1,21 @@
+# build artifacts
+build/
+*.o
+*.a
+datum_gateway
+datum_gateway_tmpl
+chirp_gateway_blake
+# editor / backups (never commit these)
+*.bak*
+*.orig
+*~
+# runtime data — never in the repo
+submitblocks/
+*.log
+logs/
+# REAL configs carry RPC + API secrets. Only *.example.json is allowed.
+configs/*.json
+!configs/*.example.json
+*.env
+*.token
+*.wif
