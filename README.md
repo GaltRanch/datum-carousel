@@ -63,6 +63,8 @@ Key `mining` settings:
 | `template_dir` / `template_file` | where supplier templates live (Carousel) / single template (dedicated) |
 | `template_supplier_bps` | supplier share, basis points (300 = 3%) |
 | `template_pool_bps` | pool share, basis points (100 = 1%) |
+| `template_activate_height` | template/Carousel mode switches on when the block template reaches this height (0 = from start). Below it the gateway mines its own tx-set with a plain coinbase, so an announced switch is atomic on-chain and needs no restart |
+| `template_activate_tag` | primary coinbase tag to switch to at that height (empty = keep `coinbase_tag_primary`) |
 | `pool_address` | pool fee address |
 
 ## Repository layout

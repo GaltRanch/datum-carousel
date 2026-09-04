@@ -138,6 +138,8 @@ typedef struct {
 	int mining_template_pool_bps;      // bps del pool/fee (default 100 = 1%)
 	bool mining_blake2b_template_carousel;  // Carousel: rotación DETERMINISTA (round-robin seeded por prevhash) sobre los suppliers frescos de template_dir; paga a ESE supplier. Requiere blake2b_template=true.
 	char mining_template_dir[256];     // dir de caches de supplier (template_live/) para el Carousel
+	int mining_template_activate_height;    // 0 = template mode activo desde el arranque; H>0 = LOTTO exacto hasta la template de altura H (inclusive activa)
+	char mining_template_activate_tag[256]; // tag primario del coinbase a partir de la activación ("" = no cambiar)
 	int coinbase_unique_id;
 	
 	char api_admin_password[72];

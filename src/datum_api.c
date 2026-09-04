@@ -768,6 +768,9 @@ int datum_api_carousel(struct MHD_Connection *connection) {
 
 	pthread_mutex_lock(&g_carousel_rot.lock);
 	json_object_set_new(root, "carousel", json_boolean(datum_config.mining_blake2b_template_carousel));
+	json_object_set_new(root, "active", json_boolean(g_carousel_rot.active));
+	json_object_set_new(root, "activate_height", json_integer((json_int_t)g_carousel_rot.activate_height));
+	json_object_set_new(root, "coinbase_tag", json_string(datum_config.mining_coinbase_tag_primary));
 	json_object_set_new(root, "prevhash", json_string(g_carousel_rot.prevhash));
 	json_object_set_new(root, "height", json_integer((json_int_t)g_carousel_rot.height));
 	json_object_set_new(root, "updated", json_integer((json_int_t)g_carousel_rot.updated));

@@ -665,6 +665,50 @@ static void datum_template_apply_supplier(json_t *res_val) {
 	our_ph = json_string_value(json_object_get(res_val, "previousblockhash"));
 	if (!our_ph) return;
 
+	// Activación por altura de TEMPLATE (swap anunciado, p.ej. LOTTO→Carousel @970000): por debajo de la
+	// altura el gateway no inyecta nada (tx-set propio, coinbase plano = LOTTO exacto). Al llegar, cambia el
+	// tag primario del coinbase (una vez) y sigue en modo template. Sin restart, sin carrera con el bloque.
+	if (datum_config.mining_template_activate_height > 0) {
+		static uint64_t pre_logged_h = 0;
+		static bool activated = false;
+		uint64_t th = datum_json_u64(json_object_get(res_val, "height"));
+		if (th < (uint64_t)datum_config.mining_template_activate_height) {
+			if (pre_logged_h != th) {
+				pre_logged_h = th;
+				DLOG_INFO("template: PRE-ACTIVATION h=%"PRIu64" < %d — tx-set propio, coinbase plano (LOTTO)", th, datum_config.mining_template_activate_height);
+			}
+			g_carousel_supplier[0] = 0;
+			g_carousel_supplier_name[0] = 0;
+			pthread_mutex_lock(&g_carousel_rot.lock);
+			g_carousel_rot.active = false;
+			g_carousel_rot.activate_height = (uint64_t)datum_config.mining_template_activate_height;
+			g_carousel_rot.height = th;
+			g_carousel_rot.n = 0; g_carousel_rot.set_n = 0; g_carousel_rot.idx = -1; g_carousel_rot.pick[0] = 0;
+			g_carousel_rot.updated = (uint64_t)time(NULL);
+			pthread_mutex_unlock(&g_carousel_rot.lock);
+			return;
+		}
+		if (!activated) {
+			activated = true;
+			if (datum_config.mining_template_activate_tag[0]) {
+				char newtag[sizeof(datum_config.mining_coinbase_tag_primary)];
+				strncpy(newtag, datum_config.mining_template_activate_tag, sizeof(newtag) - 1);
+				newtag[sizeof(newtag) - 1] = 0;
+				memcpy(datum_config.mining_coinbase_tag_primary, newtag, sizeof(newtag));
+			}
+			DLOG_INFO("template: *** ACTIVATED at template height %"PRIu64" (>= %d) — template/carousel mode ON, coinbase tag \"%s\" ***",
+				th, datum_config.mining_template_activate_height, datum_config.mining_coinbase_tag_primary);
+			pthread_mutex_lock(&g_carousel_rot.lock);
+			g_carousel_rot.active = true;
+			g_carousel_rot.activate_height = (uint64_t)datum_config.mining_template_activate_height;
+			pthread_mutex_unlock(&g_carousel_rot.lock);
+		}
+	} else {
+		pthread_mutex_lock(&g_carousel_rot.lock);
+		g_carousel_rot.active = true;
+		pthread_mutex_unlock(&g_carousel_rot.lock);
+	}
+
 	if (datum_config.mining_blake2b_template_carousel && datum_config.mining_template_dir[0]) {
 		static char cr_prev[80] = "";
 		static uint32_t cr_cycle = 0;

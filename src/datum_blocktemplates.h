@@ -200,6 +200,7 @@ extern const char *datum_blocktemplates_error;
 
 #include <pthread.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 // Carousel — deterministic rotation state (BLAKE2b template mode).
 // Written by the template thread every work cycle, read by the API (/carousel).
@@ -210,6 +211,8 @@ typedef struct {
 	char prevhash[80];
 	uint64_t height;
 	uint64_t updated;    // unix time of the last cycle
+	bool active;         // template/carousel mode currently active (false while below activate_height)
+	uint64_t activate_height; // template_activate_height from config (0 = from start)
 	uint32_t cycle;      // work cycles since this prevhash was first seen (0-based)
 	int n;               // fresh suppliers (cached template at this prevhash)
 	int start;           // uint64_be(BLAKE2b-256(prevhash hex)[0..8]) % n
