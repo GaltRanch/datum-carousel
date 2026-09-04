@@ -24,6 +24,17 @@ set_hash = BLAKE2b-256( "\n".join(set) + "\n" )[0:8] hex
 `skipped` counts scheduled templates that failed to load or apply in this cycle (corrupt file, no
 `transactions[]`); they are tried in schedule order and the failure is logged.
 
+**Right after a block.** Suppliers publish for the new tip within seconds, so cycle 0 often sees an
+empty or thin set: the gateway then mines its own tx-set (no supplier output, plain coinbase) or the
+one supplier already fresh. To keep that window short, while the set is empty or below half of the
+previous block's set the next cycle comes after `template_fast_recycle_ms` (default 5 s) instead of a
+full work cycle. Every cycle is still logged and follows the rule; `cycle` simply advances faster.
+
+**Announced switch-over.** `template_activate_height` keeps the gateway in plain mode (own tx-set, plain
+coinbase, `coinbase_tag_primary`) until the block template reaches that height, then turns template
+mode on and swaps the primary tag to `template_activate_tag` in the same cycle — so a migration such as
+"LOTTO becomes Carousel at block N" happens on-chain at exactly N, with no restart and no race.
+
 ## Properties
 
 - **Exact fairness.** Every valid supplier is served exactly once per `n` cycles. Random selection

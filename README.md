@@ -65,6 +65,7 @@ Key `mining` settings:
 | `template_pool_bps` | pool share, basis points (100 = 1%) |
 | `template_activate_height` | template/Carousel mode switches on when the block template reaches this height (0 = from start). Below it the gateway mines its own tx-set with a plain coinbase, so an announced switch is atomic on-chain and needs no restart |
 | `template_activate_tag` | primary coinbase tag to switch to at that height (empty = keep `coinbase_tag_primary`) |
+| `template_fast_recycle_ms` | right after a new block the fresh set is thin; while it is empty or below half of the previous block's set, the next cycle comes after this many ms instead of `work_update_seconds` (default 5000, 0 = off) |
 | `pool_address` | pool fee address |
 
 ## Repository layout

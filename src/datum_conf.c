@@ -148,6 +148,8 @@ const T_DATUM_CONFIG_ITEM datum_config_options[] = {
 		.required = false, .ptr = &datum_config.mining_template_activate_height, 	.default_int = 0 },
 	{ .var_type = DATUM_CONF_STRING, 	.category = "mining", 		.name = "template_activate_tag",	.description = "Primary coinbase tag to switch to at template_activate_height (empty = keep coinbase_tag_primary).",
 		.required = false, .ptr = datum_config.mining_template_activate_tag,	.default_string[0] = "", .max_string_len = sizeof(datum_config.mining_template_activate_tag) },
+	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_fast_recycle_ms",	.description = "Carousel: right after a new block the fresh supplier set is still thin (suppliers publish for the new tip within seconds). While it is empty or below half of the previous block's set, the next work cycle comes after this many ms instead of work_update_seconds (default 5000, 0 = off).",
+		.required = false, .ptr = &datum_config.mining_template_fast_recycle_ms, 	.default_int = 5000 },
 	{ .var_type = DATUM_CONF_BOOL, 		.category = "mining", 		.name = "blake2b_template_carousel",	.description = "Carousel mode: each work cycle serve the next fresh supplier template from template_dir in a deterministic round-robin seeded by the previous block hash (see /carousel on the API) and pay THAT supplier template_supplier_bps. Requires blake2b_template=true.",
 		.required = false, .ptr = &datum_config.mining_blake2b_template_carousel, 		.default_bool = false },
 	{ .var_type = DATUM_CONF_STRING, 	.category = "mining", 		.name = "template_dir",	.description = "Directory of supplier cache JSONs (data/template_live/) rotated by the Carousel. Filename (minus .json) = supplier payout address.",

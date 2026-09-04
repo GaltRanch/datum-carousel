@@ -729,6 +729,9 @@ static void datum_template_apply_supplier(json_t *res_val) {
 			strncpy(cr_prev, our_ph, sizeof(cr_prev) - 1); cr_prev[sizeof(cr_prev) - 1] = 0;
 			cr_cycle = 0;
 			cr_set_hash[0] = 0;
+			pthread_mutex_lock(&g_carousel_rot.lock);
+			g_carousel_rot.n_prev_block = g_carousel_rot.n;   // baseline: how many suppliers the previous block ended with
+			pthread_mutex_unlock(&g_carousel_rot.lock);
 		} else {
 			cr_cycle++;
 		}
@@ -1059,7 +1062,22 @@ void *datum_gateway_template_thread(void *args) {
 		gbt = NULL;
 		
 		if ((!was_notified) || (new_notify || new_notify_threadsafe)) {
-			for(i=0;i<(((uint64_t)datum_config.bitcoind_work_update_seconds*(uint64_t)1000000)/(uint64_t)2500);i++) {
+			uint64_t wait_us = (uint64_t)datum_config.bitcoind_work_update_seconds * (uint64_t)1000000;
+			// Carousel fast re-cycle: right after a block the fresh set is thin (suppliers publish for the new tip
+			// within seconds). While it is empty or below half of the previous block's set, cycle again sooner so
+			// miners spend seconds, not a full work cycle, on the pool's own tx-set / the single fastest supplier.
+			if (datum_config.mining_blake2b_template_carousel && datum_config.mining_template_fast_recycle_ms > 0
+			    && (current_time_millis() - last_block_change) < 30000) {
+				int n, nprev; bool act;
+				pthread_mutex_lock(&g_carousel_rot.lock);
+				n = g_carousel_rot.n; nprev = g_carousel_rot.n_prev_block; act = g_carousel_rot.active;
+				pthread_mutex_unlock(&g_carousel_rot.lock);
+				if (act && (n == 0 || (nprev >= 2 && n < nprev / 2))) {
+					wait_us = (uint64_t)datum_config.mining_template_fast_recycle_ms * 1000ULL;
+					DLOG_INFO("carousel: fresh set thin (n=%d, prev block n=%d) — fast re-cycle in %d ms", n, nprev, datum_config.mining_template_fast_recycle_ms);
+				}
+			}
+			for(i=0;i<(wait_us/(uint64_t)2500);i++) {
 				usleep(2500);
 				if (new_notify || new_notify_threadsafe) {
 					new_notify = 0;

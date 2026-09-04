@@ -140,6 +140,7 @@ typedef struct {
 	char mining_template_dir[256];     // dir de caches de supplier (template_live/) para el Carousel
 	int mining_template_activate_height;    // 0 = template mode activo desde el arranque; H>0 = LOTTO exacto hasta la template de altura H (inclusive activa)
 	char mining_template_activate_tag[256]; // tag primario del coinbase a partir de la activación ("" = no cambiar)
+	int mining_template_fast_recycle_ms;    // Carousel: si tras un bloque el set fresco es chico, próximo ciclo a los N ms (default 5000; 0 = off)
 	int coinbase_unique_id;
 	
 	char api_admin_password[72];

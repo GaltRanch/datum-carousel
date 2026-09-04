@@ -215,6 +215,7 @@ typedef struct {
 	uint64_t activate_height; // template_activate_height from config (0 = from start)
 	uint32_t cycle;      // work cycles since this prevhash was first seen (0-based)
 	int n;               // fresh suppliers (cached template at this prevhash)
+	int n_prev_block;    // n at the last cycle of the previous prevhash (baseline for the fast re-cycle)
 	int start;           // uint64_be(BLAKE2b-256(prevhash hex)[0..8]) % n
 	int idx;             // (start + cycle + skipped) % n ; -1 = none applied
 	int skipped;         // scheduled templates that failed to load/apply this cycle
