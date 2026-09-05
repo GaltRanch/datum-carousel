@@ -1,0 +1,28 @@
+name: build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake pkg-config gcc libcurl4-openssl-dev libjansson-dev libmicrohttpd-dev libsodium-dev
+      - name: configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: build datum_gateway
+        run: cmake --build build --target datum_gateway -j"$(nproc)"
+      - name: tools syntax
+        run: |
+          python3 -m py_compile tools/*.py
+          test -d ingest && python3 -m py_compile ingest/*.py || true
+      - name: no forbidden strings
+        run: |
+          ! git grep -n -iE 'rpcpassword=[^ ]|admin_password" *: *"[^C]|BEGIN (RSA|EC|OPENSSH) PRIVATE' -- . ':!docs/UPSTREAM-README.md'
