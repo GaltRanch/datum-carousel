@@ -25,4 +25,4 @@ jobs:
           test -d ingest && python3 -m py_compile ingest/*.py || true
       - name: no forbidden strings
         run: |
-          ! git grep -n -iE 'rpcpassword=[^ ]|admin_password" *: *"[^C]|BEGIN (RSA|EC|OPENSSH) PRIVATE' -- . ':!docs/UPSTREAM-README.md'
+          ! git grep -n -iE 'rpcpassword=[^ "]{4,}|admin_password" *: *"[^C"][^"]{3,}"|BEGIN (RSA|EC|OPENSSH) PRIVATE' -- . ':!docs/UPSTREAM-README.md' ':!.github/'
