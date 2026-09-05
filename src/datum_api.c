@@ -778,6 +778,8 @@ int datum_api_carousel(struct MHD_Connection *connection) {
 	json_object_set_new(root, "n", json_integer(g_carousel_rot.n));
 	json_object_set_new(root, "start", json_integer(g_carousel_rot.start));
 	json_object_set_new(root, "skipped", json_integer(g_carousel_rot.skipped));
+	json_object_set_new(root, "failed", json_boolean(g_carousel_rot.failed));
+	json_object_set_new(root, "require_validated", json_boolean(datum_config.mining_template_require_validated));
 	json_object_set_new(root, "idx", json_integer(g_carousel_rot.idx));
 	json_object_set_new(root, "pick", json_string(g_carousel_rot.pick));
 	json_object_set_new(root, "set_hash", json_string(g_carousel_rot.set_hash));
@@ -787,7 +789,8 @@ int datum_api_carousel(struct MHD_Connection *connection) {
 	json_object_set_new(root, "rule", json_string(
 		"set = supplier addresses whose cached template has previousblockhash == prevhash, sorted bytewise; "
 		"seed = BLAKE2b-256(prevhash lowercase hex ASCII); start = uint64_be(seed[0:8]) % n; "
-		"cycle = work cycles since prevhash was first seen (0-based); pick = set[(start + cycle + skipped) % n]; "
+		"cycle = work cycles since prevhash was first seen (0-based); pick = set[(start + cycle) % n] (never advanced past a failing template: failed=true means no supplier this cycle); "
+		"set = every cache with previousblockhash == prevhash, transactions[], stale != true and (if require_validated) validated.proposal == true, sorted bytewise, capped after sorting; "
 		"set_hash = BLAKE2b-256(set joined by '\\n')[0:8] hex"));
 
 	out = json_dumps(root, JSON_COMPACT);

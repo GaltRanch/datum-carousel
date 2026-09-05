@@ -205,7 +205,9 @@ extern const char *datum_blocktemplates_error;
 // Carousel — deterministic rotation state (BLAKE2b template mode).
 // Written by the template thread every work cycle, read by the API (/carousel).
 // Anyone can recompute `pick` from prevhash + the sorted fresh set + cycle (see datum_blocktemplates.c).
-#define CAROUSEL_MAX_SET 512
+// Cap on the fresh set: all cache files are collected, SORTED bytewise, and only then capped to the first
+// CAROUSEL_MAX_SET addresses — so the served set stays a pure function of the public data even above the cap.
+#define CAROUSEL_MAX_SET 4096
 typedef struct {
 	pthread_mutex_t lock;
 	char prevhash[80];
@@ -218,7 +220,8 @@ typedef struct {
 	int n_prev_block;    // n at the last cycle of the previous prevhash (baseline for the fast re-cycle)
 	int start;           // uint64_be(BLAKE2b-256(prevhash hex)[0..8]) % n
 	int idx;             // (start + cycle + skipped) % n ; -1 = none applied
-	int skipped;         // scheduled templates that failed to load/apply this cycle
+	int skipped;         // always 0 since 2026-09-05: the schedule is never advanced past a failing template (kept for API compatibility)
+	bool failed;         // the scheduled template failed to load/apply this cycle → the gateway mined its own tx-set (no supplier paid)
 	char pick[128];      // supplier address served this cycle
 	char set_hash[17];   // BLAKE2b-256(set joined by "\n")[0..8] hex
 	int set_n;

@@ -61,17 +61,32 @@ Key `mining` settings:
 | `blake2b_template` | template mode on (inject supplier tx-set) |
 | `blake2b_template_carousel` | rotate across `template_dir` (Carousel) |
 | `template_dir` / `template_file` | where supplier templates live (Carousel) / single template (dedicated) |
-| `template_supplier_bps` | supplier share, basis points (300 = 3%) |
-| `template_pool_bps` | pool share, basis points (100 = 1%) |
+| `template_supplier_bps` | supplier share, basis points (default 300 = 3%) |
+| `template_pool_bps` | pool share, basis points (default 100 = 1%). `supplier_bps + pool_bps` must be < 10000 or the gateway refuses to start |
+| `template_require_validated` | default `true`: only serve caches carrying the ingest's validation stamp (`validated.proposal == true`, i.e. passed `getblocktemplate mode=proposal` + the datacarrier gate) and not flagged stale |
 | `template_activate_height` | template/Carousel mode switches on when the block template reaches this height (0 = from start). Below it the gateway mines its own tx-set with a plain coinbase, so an announced switch is atomic on-chain and needs no restart |
 | `template_activate_tag` | primary coinbase tag to switch to at that height (empty = keep `coinbase_tag_primary`) |
 | `template_fast_recycle_ms` | right after a new block the fresh set is thin; while it is empty or below half of the previous block's set, the next cycle comes after this many ms instead of `work_update_seconds` (default 5000, 0 = off) |
 | `pool_address` | pool fee address |
 
+## Ingest — where templates are validated
+
+Suppliers never write to `template_dir` directly. They POST their `getblocktemplate` output to the
+**ingest** (`ingest/pyblock_http_server.py`, port 5800), which runs, in order: address/shape checks, a
+spam gate (`testmempoolaccept` sample), the `datacarrier=0` gate (no OP_RETURN / bare-multisig
+carriers), and **`getblocktemplate mode=proposal` on the pool's own node** — the node itself decides
+whether the template forms a consensus-valid block, including the coinbase value against the declared
+fees. Only then the cache is written with `validated.proposal = true`; the gateway refuses anything else
+(`template_require_validated`). A supplier can not grief the rotation with an invalid template or an
+inflated fee: it never enters the set. Signed publications (DATUM-TS) are verified by
+`ingest/datum_ts_verify.py` when enabled. Credentials come from the environment only.
+
 ## Repository layout
 
 ```
 src/        gateway sources (upstream + BLAKE2b + Carousel/Template mods)
+ingest/     template ingest (validation: spam gate, datacarrier gate, node proposal check, DATUM-TS verify)
+tools/      verify_carousel_rotation.py (recompute the rotation), carousel_blocks_onchain.py (check blocks from a node)
 configs/    *.example.json only — sanitized
 docs/       whitepapers, design notes, UPSTREAM-README.md
 poc/        DATUM-TS proofs of concept (commitment, stratum transport, signed supply)

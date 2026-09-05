@@ -2325,10 +2325,12 @@ void update_stratum_job(T_DATUM_TEMPLATE_DATA *block_template, bool new_block, i
 
 	// Carousel: PINEAR el supplier sorteado a ESTE job (apply_supplier lo dejó en la global justo antes de crear
 	// el job). Así el coinbase per-usuario del notify y del submit usan el MISMO supplier → commitment idéntico.
+	pthread_mutex_lock(&g_carousel_rot.lock);   // same lock the template thread holds while writing the globals
 	strncpy(s->carousel_supplier, g_carousel_supplier, sizeof(s->carousel_supplier) - 1);
 	s->carousel_supplier[sizeof(s->carousel_supplier) - 1] = 0;
 	strncpy(s->carousel_supplier_name, g_carousel_supplier_name, sizeof(s->carousel_supplier_name) - 1);
 	s->carousel_supplier_name[sizeof(s->carousel_supplier_name) - 1] = 0;
+	pthread_mutex_unlock(&g_carousel_rot.lock);
 	
 	// come up with a prefix for the job
 	// this ensures it is unique even if nothing else about the job has changed for some reason

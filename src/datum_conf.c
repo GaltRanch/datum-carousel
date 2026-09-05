@@ -140,10 +140,12 @@ const T_DATUM_CONFIG_ITEM datum_config_options[] = {
 		.required = false, .ptr = datum_config.mining_template_file,		.default_string[0] = "", .max_string_len = sizeof(datum_config.mining_template_file) },
 	{ .var_type = DATUM_CONF_STRING, 	.category = "mining", 		.name = "template_supplier_address",	.description = "Supplier BTC address receiving the supplier share (1%) when blake2b_template=true.",
 		.required = false, .ptr = datum_config.mining_template_supplier_address,		.default_string[0] = "", .max_string_len = sizeof(datum_config.mining_template_supplier_address) },
-	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_supplier_bps",	.description = "Supplier share in basis points (default 100 = 1%).",
-		.required = false, .ptr = &datum_config.mining_template_supplier_bps, 		.default_int = 100 },
-	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_pool_bps",	.description = "Pool fee share in basis points (default 100 = 1%).",
+	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_supplier_bps",	.description = "Supplier share in basis points (default 300 = 3%, the bootstrap split). supplier_bps + pool_bps must be < 10000.",
+		.required = false, .ptr = &datum_config.mining_template_supplier_bps, 		.default_int = 300 },
+	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_pool_bps",	.description = "Pool fee share in basis points (default 100 = 1%). supplier_bps + pool_bps must be < 10000.",
 		.required = false, .ptr = &datum_config.mining_template_pool_bps, 		.default_int = 100 },
+	{ .var_type = DATUM_CONF_BOOL, 		.category = "mining", 		.name = "template_require_validated",	.description = "Only serve supplier templates whose cache file carries the ingest's validation stamp (validated.proposal == true, i.e. the template passed getblocktemplate mode=proposal + the datacarrier gate) and is not flagged stale. Default true. Set false only for testing.",
+		.required = false, .ptr = &datum_config.mining_template_require_validated, 	.default_bool = true },
 	{ .var_type = DATUM_CONF_INT, 		.category = "mining", 		.name = "template_activate_height",	.description = "Template/Carousel mode activates when the block template height reaches this value (0 = active from start). Below it the gateway mines its own tx-set with the plain coinbase (LOTTO), so the switch is atomic on-chain and needs no restart.",
 		.required = false, .ptr = &datum_config.mining_template_activate_height, 	.default_int = 0 },
 	{ .var_type = DATUM_CONF_STRING, 	.category = "mining", 		.name = "template_activate_tag",	.description = "Primary coinbase tag to switch to at template_activate_height (empty = keep coinbase_tag_primary).",
@@ -641,6 +643,16 @@ int datum_read_config(const char *conffile) {
 		return 0;
 	}
 	
+	// Template/Carousel split: supplier_bps + pool_bps must leave something for the finder. Without this
+	// clamp an operator typo (e.g. 3000 instead of 300) silently underflows the finder's uint64 value
+	// and every block built in template mode is invalid (review 2026-09-05).
+	if (datum_config.mining_template_supplier_bps < 0 || datum_config.mining_template_pool_bps < 0
+	    || datum_config.mining_template_supplier_bps + datum_config.mining_template_pool_bps >= 10000) {
+		DLOG_FATAL("mining.template_supplier_bps (%d) + mining.template_pool_bps (%d) must be in [0, 10000) — the finder must keep a positive share.",
+			datum_config.mining_template_supplier_bps, datum_config.mining_template_pool_bps);
+		return 0;
+	}
+
 	// Save some multiplication later
 	datum_config.datum_protocol_global_timeout_ms = datum_config.datum_protocol_global_timeout * 1000;
 	

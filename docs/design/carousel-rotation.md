@@ -11,18 +11,32 @@ have been served and compare with what miners actually received.
 ## Rule
 
 ```
-set      = supplier addresses whose cached template is fresh
-           (template.previousblockhash == current tip), sorted bytewise ascending
+set      = supplier caches (template_dir/<addr>.json) that are fresh AND validated:
+             previousblockhash == current tip, a transactions[] array, stale != true,
+             validated.proposal == true   (the ingest's stamp, see below)
+           sorted bytewise ascending, capped to CAROUSEL_MAX_SET (4096) AFTER sorting
 seed     = BLAKE2b-256( prevhash as lowercase hex ASCII )
 start    = uint64_be( seed[0:8] ) % n
 cycle    = work cycles since this prevhash was first seen by the gateway (0-based,
-           one cycle per work_update_seconds)
-pick     = set[ (start + cycle + skipped) % n ]
+           one cycle per work_update_seconds, sooner right after a block — see below)
+pick     = set[ (start + cycle) % n ]
 set_hash = BLAKE2b-256( "\n".join(set) + "\n" )[0:8] hex
 ```
 
-`skipped` counts scheduled templates that failed to load or apply in this cycle (corrupt file, no
-`transactions[]`); they are tried in schedule order and the failure is logged.
+**The schedule is never advanced past a failing template.** If the scheduled cache fails to load or
+apply, that cycle mines the gateway's own tx-set with *no supplier output* and the API/log report
+`failed=true`. There is no `skipped` term the operator could use to jump over a supplier; a failure is
+visible on-chain (no 3% output) and costs the operator, not the supplier.
+
+**Membership is a full JSON parse**, the same rule the verifier applies — no header prefilter, so the set
+is a pure function of the files' content.
+
+**Validated means validated by the node.** The gateway only serves caches carrying the ingest's stamp
+(`validated.proposal == true`). The ingest (`ingest/`) writes that stamp only after the template passed
+`getblocktemplate mode=proposal` on the pool's own node (consensus validity, including the coinbase value
+against the declared fees), the spam gate and the `datacarrier=0` gate, and only while it is at the tip.
+A supplier can therefore not grief the rotation with an invalid template or an inflated fee: it never
+enters the set. `template_require_validated=false` disables the requirement (testing only).
 
 **Right after a block.** Suppliers publish for the new tip within seconds, so cycle 0 often sees an
 empty or thin set: the gateway then mines its own tx-set (no supplier output, plain coinbase) or the
