@@ -288,6 +288,16 @@ def ferox_banned(ip, user):
     except Exception:
         return False
 
+# Allowlist de FeroxSpear (suppliers de confianza): además de no ser baneables, saltan la política de
+# User-Agent KNOTS_ONLY (caso paerrinslab 2026-09-06: cliente sin UA → 32 rechazos → ban por error).
+FEROX_ALLOW = os.environ.get("FEROX_ALLOW", "/var/www/pyblock/data/ferox_allow.json")
+def ferox_allowed(user):
+    try:
+        with open(FEROX_ALLOW) as f: a = json.load(f)
+        return user in (a.get("suppliers") or [])
+    except Exception:
+        return False
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass  # silenciar el log default (ruido de scanners)
     def _send(self, obj, code=200):
@@ -372,7 +382,7 @@ class H(BaseHTTPRequestHandler):
         if ferox_banned(ip, user):
             print(f"[reject ferox-ban] {ip} user={user}", flush=True)
             return finish("reject", "ferox-ban", "blocked by FeroxSpear — flagged as an attacker")
-        if KNOTS_ONLY and "knots" not in ua.lower():
+        if KNOTS_ONLY and "knots" not in ua.lower() and not ferox_allowed(user):
             print(f"[reject knots] {ip} user={user} ua={ua!r}", flush=True)
             return finish("reject", "knots", "banned: node is not Bitcoin Knots (UA has no 'Knots')")
         if REQUIRE_BIP110 and (ver & BIP110_BIT) == 0:
