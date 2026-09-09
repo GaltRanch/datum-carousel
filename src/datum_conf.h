@@ -141,6 +141,7 @@ typedef struct {
 	char mining_template_dir[256];     // dir de caches de supplier (template_live/) para el Carousel
 	int mining_template_activate_height;    // 0 = template mode activo desde el arranque; H>0 = LOTTO exacto hasta la template de altura H (inclusive activa)
 	char mining_template_activate_tag[256]; // tag primario del coinbase a partir de la activación ("" = no cambiar)
+	int mining_carousel_block_stride;       // Carousel: cuánto avanza el punto de inicio de la rueda por BLOQUE (start = height*stride % n). 0 = modo viejo (start = BLAKE2b(prevhash) % n, reinicio al azar cada bloque). ~cycles/bloque da cobertura continua.
 	int mining_template_fast_recycle_ms;    // Carousel: si tras un bloque el set fresco es chico, próximo ciclo a los N ms (default 5000; 0 = off)
 	bool mining_template_require_validated; // solo servir templates con stamp de validación del ingest (validated.proposal==true, !stale). Default true.
 	int coinbase_unique_id;

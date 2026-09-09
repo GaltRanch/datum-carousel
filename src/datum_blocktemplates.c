@@ -594,8 +594,9 @@ static bool datum_template_swap_from(json_t *res_val, json_t *sup, const char *o
 // enforced by construction and recomputable by anyone from public data:
 //   set     = supplier addresses whose cached template is fresh (previousblockhash == our tip),
 //             sorted bytewise ascending (filename minus .json = payout address)
-//   seed    = BLAKE2b-256(prevhash as lowercase hex ASCII)
-//   start   = uint64_be(seed[0..8]) % n
+//   start   = stride>0 ? (height * stride) % n            (CONTINUOUS: window marches forward each block)
+//           : uint64_be(BLAKE2b-256(prevhash hex)[0..8]) % n   (legacy: pseudo-random restart each block)
+//             (carousel_block_stride config; 0 = legacy)
 //   cycle   = work cycles since this prevhash was first seen by this gateway (0-based, ~every
 //             work_update_seconds)
 //   pick    = set[(start + cycle + skipped) % n]   (skipped = scheduled templates that failed to
@@ -777,10 +778,18 @@ static void datum_template_apply_supplier(json_t *res_val) {
 			}
 		}
 
-		// seed = BLAKE2b-256(prevhash hex ascii); start = uint64_be(seed[0..8]) % n
-		datum_blake2b_256(h, (const unsigned char *)our_ph, strlen(our_ph));
-		for (i = 0; i < 8; i++) s = (s << 8) | h[i];
-		start = (int)(s % (uint64_t)n);
+		// start del ciclo. Dos modos, ambos deterministas y reproducibles por cualquiera desde datos on-chain:
+		//   stride>0 (continuo): start = (height * stride) mod n → el punto de inicio AVANZA por bloque en vez de
+		//     reiniciar al azar; con stride ~= ciclos/bloque la ventana servida es contigua y cada supplier
+		//     entra ~cada n/stride bloques (sin huecos de horas por mala suerte del hash).
+		//   stride==0 (legacy): start = uint64_be(BLAKE2b-256(prevhash)[0..8]) mod n (reinicio pseudoaleatorio).
+		if (datum_config.mining_carousel_block_stride > 0) {
+			start = (int)(((uint64_t)height * (uint64_t)datum_config.mining_carousel_block_stride) % (uint64_t)n);
+		} else {
+			datum_blake2b_256(h, (const unsigned char *)our_ph, strlen(our_ph));
+			for (i = 0; i < 8; i++) s = (s << 8) | h[i];
+			start = (int)(s % (uint64_t)n);
+		}
 
 		// The schedule is NEVER advanced past a failing template: pick = set[(start + cycle) % n], full stop.
 		// If that template fails to load/apply, this cycle mines the gateway's own tx-set with NO supplier

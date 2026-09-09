@@ -9,7 +9,7 @@ Rule (datum_blocktemplates.c):
                passed getblocktemplate mode=proposal + the datacarrier gate); sorted bytewise;
                capped to CAROUSEL_MAX_SET AFTER sorting
     seed     = BLAKE2b-256(prevhash lowercase hex ASCII)
-    start    = uint64_be(seed[0:8]) % n
+    start    = block_stride>0 ? (height*block_stride) % n  (continuous)  :  uint64_be(BLAKE2b(prevhash)[0:8]) % n  (legacy)
     cycle    = work cycles since prevhash was first seen (0-based)
     pick     = set[(start + cycle) % n]   — never advanced past a failing template
                (failed=true / pick="" means the gateway mined its own tx-set that cycle, no supplier paid)
@@ -31,7 +31,10 @@ def blake2b256(b: bytes) -> bytes:
     return hashlib.blake2b(b, digest_size=32).digest()
 
 
-def start_for(prevhash: str, n: int) -> int:
+def start_for(prevhash: str, n: int, height: int = 0, stride: int = 0) -> int:
+    # stride>0: rueda continua anclada a la altura (start = height*stride % n); 0: legacy (BLAKE2b(prevhash)%n).
+    if stride > 0:
+        return (height * stride) % n
     return int.from_bytes(blake2b256(prevhash.lower().encode())[:8], "big") % n
 
 
@@ -39,9 +42,9 @@ def set_hash_for(addrs) -> str:
     return blake2b256(("\n".join(addrs) + "\n").encode())[:8].hex()
 
 
-def expected_pick(prevhash: str, addrs, cycle: int) -> str:
+def expected_pick(prevhash: str, addrs, cycle: int, height: int = 0, stride: int = 0) -> str:
     n = len(addrs)
-    return addrs[(start_for(prevhash, n) + cycle) % n]
+    return addrs[(start_for(prevhash, n, height, stride) + cycle) % n]
 
 
 def fresh_set_from_dir(template_dir: str, prevhash: str, require_validated: bool = True):
@@ -78,11 +81,13 @@ def check_api(url: str, template_dir: str | None) -> bool:
     ok = True
     if addrs != sorted(addrs):
         print("FAIL set is not sorted bytewise"); ok = False
-    if start_for(st["prevhash"], n) != st["start"]:
-        print(f"FAIL start: expected {start_for(st['prevhash'], n)} got {st['start']}"); ok = False
+    _stride = int(st.get("block_stride", 0) or 0)
+    _exp_start = start_for(st["prevhash"], n, int(st.get("height", 0)), _stride)
+    if _exp_start != st["start"]:
+        print(f"FAIL start: expected {_exp_start} got {st['start']} (stride={_stride})"); ok = False
     if set_hash_for(addrs) != st["set_hash"]:
         print(f"FAIL set_hash: expected {set_hash_for(addrs)} got {st['set_hash']}"); ok = False
-    exp = expected_pick(st["prevhash"], addrs, st["cycle"])
+    exp = expected_pick(st["prevhash"], addrs, st["cycle"], int(st.get("height", 0)), _stride)
     exp_idx = (st["start"] + st["cycle"]) % n
     if st["idx"] != exp_idx:
         print(f"FAIL idx: expected {exp_idx} got {st['idx']}"); ok = False
