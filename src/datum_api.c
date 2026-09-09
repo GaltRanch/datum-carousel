@@ -959,6 +959,7 @@ int datum_api_client_dashboard(struct MHD_Connection *connection) {
 	sz = snprintf(output, max_sz-1-sz, "%s", www_clients_top_html);
 	
 	if (!datum_api_check_admin_password_httponly(connection, datum_api_create_response_authfail_clients)) {
+		free(output);   // was leaked on every unauthenticated /clients request (~90 KB each)
 		return MHD_YES;
 	}
 	
