@@ -868,7 +868,7 @@ void *datum_gateway_fallback_notifier(void *args) {
 			json_decref(gbbh);
 			gbbh = NULL;
 		}
-		sleep(1);
+		sleep(datum_config.bitcoind_notify_poll_seconds > 0 ? datum_config.bitcoind_notify_poll_seconds : 1);
 	}
 }
 

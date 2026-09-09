@@ -78,6 +78,8 @@ const T_DATUM_CONFIG_ITEM datum_config_options[] = {
 	{ .var_type = DATUM_CONF_BOOL,	 	.category = "bitcoind", 	.name = "notify_fallback",			.description = "Fall back to less efficient methods for new block notifications. Can disable if you use blocknotify.",
 		.example_default = true,
 		.required = false, .ptr = &datum_config.bitcoind_notify_fallback, .default_bool = true },
+	{ .var_type = DATUM_CONF_INT,	 	.category = "bitcoind", 	.name = "notify_poll_seconds",		.description = "Seconds between getbestblockhash polls of the fallback notifier (1 = upstream). Raise it when an external notifier hits /NOTIFY on every block, so N gateways stop costing N RPC/s on the node.",
+		.required = false, .ptr = &datum_config.bitcoind_notify_poll_seconds, .default_int = 1 },
 	
 	// stratum v1 server configs
 	{ .var_type = DATUM_CONF_STRING, 	.category = "stratum", 		.name = "listen_addr",					.description = "IP address to listen for Stratum Gateway connections",

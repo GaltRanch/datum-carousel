@@ -104,6 +104,7 @@ typedef struct {
 	char bitcoind_rpcurl[256];
 	int bitcoind_work_update_seconds;
 	bool bitcoind_notify_fallback;
+	int bitcoind_notify_poll_seconds;   // fallback poller: seconds between getbestblockhash calls (1 = upstream behaviour)
 	
 	char stratum_v1_listen_addr[128];
 	int stratum_v1_listen_port;
