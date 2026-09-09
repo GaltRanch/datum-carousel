@@ -51,37 +51,73 @@ int submit_block_triggered = 0;
 const char *submitblock_ptr = NULL;
 char submitblock_hash[256] = { 0 };
 
+// Block submission must survive a momentarily overloaded node: bitcoind answers HTTP 503 ("Work queue depth
+// exceeded") when its RPC queue is full, and a timeout/refused connection looks the same to us. With
+// CURLOPT_FAILONERROR those came back as NULL, which the old code logged as "submitted successfully" -- a
+// found block silently lost. Now: retry on transport failure with backoff (100 ms -> 2 s, ~1 minute total),
+// never retry a real reply (accepted or rejected), and never claim success without one.
+#ifndef DATUM_SUBMITBLOCK_MAX_ATTEMPTS
+#define DATUM_SUBMITBLOCK_MAX_ATTEMPTS 40
+#endif
+#ifndef DATUM_SUBMITBLOCK_BACKOFF_MS
+#define DATUM_SUBMITBLOCK_BACKOFF_MS 100
+#endif
+#define DATUM_SUBMITBLOCK_BACKOFF_MAX_MS 2000
+
 void preciousblock(CURL *curl, char *blockhash) {
 	json_t *json;
 	char rpc_data[384];
-	
+	long http_code = 0;
+	int attempt;
 	snprintf(rpc_data, sizeof(rpc_data), "{\"method\":\"preciousblock\",\"params\":[\"%s\"],\"id\":1}", blockhash);
-	json = bitcoind_json_rpc_call(curl, &datum_config, rpc_data);
-	if (!json) return;
-	
-	json_decref(json);
+	for (attempt = 1; attempt <= 5; attempt++) {
+		http_code = 0;
+		json = bitcoind_json_rpc_call_http(curl, &datum_config, rpc_data, &http_code);
+		if (json) { json_decref(json); return; }
+		if (http_code == 200) return;   // real reply we could not use -- not a transport problem, retrying won't help
+		DLOG_WARN("preciousblock %s attempt %d/5 got no reply (HTTP %ld), retrying", blockhash, attempt, http_code);
+		usleep((useconds_t)DATUM_SUBMITBLOCK_BACKOFF_MS * 1000 * attempt);
+	}
 	return;
 }
 
 void datum_submitblock_doit(CURL *tcurl, char *url, const char *submitblock_req, const char *block_hash_hex) {
 	json_t *r;
 	char *s = NULL;
-	// TODO: Move these types of things to the conf file
-	if (!url) {
-		r = bitcoind_json_rpc_call(tcurl, &datum_config, submitblock_req);
-	} else {
-		r = json_rpc_call(tcurl, url, NULL, submitblock_req);
-	}
-	if (!r) {
-		// oddly, this means success here.
-		DLOG_INFO("Block %s submitted to upstream node successfully!",block_hash_hex);
-	} else {
-		s = json_dumps(r, JSON_ENCODE_ANY);
-		if (!s) {
-			DLOG_WARN("Upstream node rejected our block! (unknown)");
+	long http_code = 0;
+	int attempt;
+	unsigned int backoff_ms = DATUM_SUBMITBLOCK_BACKOFF_MS;
+	r = NULL;
+	for (attempt = 1; attempt <= DATUM_SUBMITBLOCK_MAX_ATTEMPTS; attempt++) {
+		http_code = 0;
+		if (!url) {
+			r = bitcoind_json_rpc_call_http(tcurl, &datum_config, submitblock_req, &http_code);
 		} else {
-			DLOG_WARN("Upstream node rejected our block! (%s)",s);
-			free(s);
+			r = json_rpc_call_full(tcurl, url, NULL, submitblock_req, NULL, &http_code);
+		}
+		if (r) break;
+		if (http_code == 200) break;   // the node answered, just not with a usable JSON-RPC reply: retrying won't change that
+		DLOG_WARN("Block %s submit attempt %d/%d got no reply from the node (HTTP %ld) -- retrying in %u ms", block_hash_hex, attempt, DATUM_SUBMITBLOCK_MAX_ATTEMPTS, http_code, backoff_ms);
+		usleep((useconds_t)backoff_ms * 1000);
+		if (backoff_ms < DATUM_SUBMITBLOCK_BACKOFF_MAX_MS) backoff_ms *= 2;
+	}
+	
+	if (!r) {
+		// We never got a usable reply: we genuinely don't know whether the block was accepted. Never claim success.
+		DLOG_ERROR("Did not get a valid response submitting block %s (last HTTP %ld)! It may or may not have been accepted -- CHECK YOUR NODE (the block JSON is in save_submitblocks_dir if configured)", block_hash_hex, http_code);
+	} else {
+		json_t * const res_val = json_object_get(r, "result");
+		if (json_is_null(res_val)) {
+			// a null result means success here
+			DLOG_INFO("Block %s submitted to upstream node successfully!%s", block_hash_hex, attempt > 1 ? " (after retries)" : "");
+		} else {
+			s = json_dumps(res_val, JSON_ENCODE_ANY);
+			if (!s) {
+				DLOG_WARN("Upstream node rejected our block! (unknown)");
+			} else {
+				DLOG_WARN("Upstream node rejected our block! (%s)",s);
+				free(s);
+			}
 		}
 		json_decref(r);
 	}

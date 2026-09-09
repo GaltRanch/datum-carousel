@@ -184,8 +184,10 @@ json_t *json_rpc_call_full(CURL *curl, const char *url, const char *userpass, co
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	
 	rc = curl_easy_perform(curl);
+	// Always report the HTTP status to the caller: submitblock needs to tell a transport failure
+	// (503 "work queue depth exceeded", timeout, refused) apart from a valid reply with a null result.
+	if (http_resp_code_out) curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, http_resp_code_out);
 	if (rc) {
-		if (http_resp_code_out) curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, http_resp_code_out);
 		DLOG_DEBUG("json_rpc_call: HTTP request failed: %s", curl_err_str);
 		DLOG_DEBUG("json_rpc_call: Request was: %s",rpc_req);
 		goto err_out;
@@ -201,7 +203,10 @@ json_t *json_rpc_call_full(CURL *curl, const char *url, const char *userpass, co
 		res_val = json_object_get(val, "result");
 		err_val = json_object_get(val, "error");
 		
-		if (!res_val || json_is_null(res_val) || (err_val && !json_is_null(err_val))) {
+		// A present-but-null "result" is a legitimate successful reply (submitblock/preciousblock return
+		// null on success); it is the caller's job to interpret it. Only a missing "result" key or a
+		// genuine non-null "error" mean we did not get a usable reply.
+		if (!res_val || (err_val && !json_is_null(err_val))) {
 			char *s;
 			
 			if (err_val) {
@@ -256,14 +261,19 @@ void update_rpc_auth(global_config_t * const cfg) {
 	}
 }
 
-json_t *bitcoind_json_rpc_call(CURL * const curl, global_config_t * const cfg, const char * const rpc_req) {
+json_t *bitcoind_json_rpc_call_http(CURL * const curl, global_config_t * const cfg, const char * const rpc_req, long * const http_resp_code_out) {
 	long http_resp_code = -1;
 	json_t *j = json_rpc_call_full(curl, cfg->bitcoind_rpcurl, cfg->bitcoind_rpcuserpass, rpc_req, NULL, &http_resp_code);
+	if (http_resp_code_out) *http_resp_code_out = http_resp_code;
 	if (j) return j;
 	if (cfg->bitcoind_rpcuser[0]) return NULL;
 	if (http_resp_code != 401) return NULL;
 	
 	// Authentication failure using cookie; reload cookie file and try again
 	if (!update_rpc_cookie(cfg)) return NULL;
-	return json_rpc_call(curl, cfg->bitcoind_rpcurl, cfg->bitcoind_rpcuserpass, rpc_req);
+	return json_rpc_call_full(curl, cfg->bitcoind_rpcurl, cfg->bitcoind_rpcuserpass, rpc_req, NULL, http_resp_code_out);
+}
+
+json_t *bitcoind_json_rpc_call(CURL * const curl, global_config_t * const cfg, const char * const rpc_req) {
+	return bitcoind_json_rpc_call_http(curl, cfg, rpc_req, NULL);
 }
