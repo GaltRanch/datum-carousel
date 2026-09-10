@@ -1,0 +1,14 @@
+{
+  "listen": "127.0.0.1:8352",
+  "upstream": "127.0.0.1:8342",
+  "rpcuser": "RPC_USER_DE_NODE_B",
+  "rpcpassword": "RPC_PASSWORD_DE_NODE_B",
+  "poll_ms": 250,
+  "gbt_ttl_ms": 3000,
+  "tip_max_age_ms": 5000,
+  "threads": 24,
+  "timeout_ms": 8000,
+  "notify_urls": ["127.0.0.1:7154", "127.0.0.1:7156", "127.0.0.1:7157", "127.0.0.1:7158"],
+  "notify_ports_dir": "/var/www/pyblock/data/tmpl_providers",
+  "notify_port_offset": 20000
+}
