@@ -777,6 +777,7 @@ int datum_api_carousel(struct MHD_Connection *connection) {
 	json_object_set_new(root, "cycle", json_integer((json_int_t)g_carousel_rot.cycle));
 	json_object_set_new(root, "n", json_integer(g_carousel_rot.n));
 	json_object_set_new(root, "start", json_integer(g_carousel_rot.start));
+	json_object_set_new(root, "block_stride", json_integer((json_int_t)datum_config.mining_carousel_block_stride));
 	json_object_set_new(root, "skipped", json_integer(g_carousel_rot.skipped));
 	json_object_set_new(root, "failed", json_boolean(g_carousel_rot.failed));
 	json_object_set_new(root, "require_validated", json_boolean(datum_config.mining_template_require_validated));
